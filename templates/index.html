@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>跳跳学长 · 物理微课讲解视频</title>
+  <style>
+    :root {
+      --bg: #070910; --panel: #12172a; --border: rgba(88, 196, 221, 0.25);
+      --blue: #58C4DD; --gold: #F4D03F; --text: #ECEFF4; --muted: #94A3B8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: 'PingFang SC', 'Microsoft YaHei', Inter, sans-serif;
+      height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .player-shell { width: min(96vw, calc((100vh - 96px) * 16 / 9)); display: flex; flex-direction: column; gap: 8px; }
+    .stage-frame {
+      width: 100%; aspect-ratio: 16 / 9; background: #0c0f1a; border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.65);
+    }
+    canvas#c { width: 100%; height: 100%; display: block; cursor: pointer; }
+    .player-bar {
+      display: flex; flex-direction: column; gap: 8px; padding: 10px 16px 12px;
+      background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    }
+    .seek-row { display: flex; align-items: center; width: 100%; }
+    input#seek[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16); outline: none; cursor: pointer; margin: 0;
+    }
+    input#seek[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%;
+      background: var(--gold); border: 2px solid #0c0f1a; box-shadow: 0 0 10px rgba(244, 208, 63, 0.8); cursor: grab;
+    }
+    .ctrl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .ctrl-left, .ctrl-right { display: flex; align-items: center; gap: 10px; }
+    button {
+      background: rgba(88, 196, 221, 0.15); color: var(--blue); border: 1px solid rgba(88, 196, 221, 0.4);
+      border-radius: 7px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .chap-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chap-pill {
+      padding: 4px 10px; font-size: 12px; border-radius: 999px;
+      background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid rgba(255,255,255,0.12);
+    }
+    .chap-pill.current { color: var(--gold); border-color: var(--gold); background: rgba(244, 208, 63, 0.14); }
+    .time-label { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--muted); min-width: 98px; }
+    select {
+      background: rgba(12, 15, 26, 0.9); color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 8px; font-size: 12.5px; cursor: pointer;
+    }
+    body.video-mode { background: #0c0f1a; }
+    body.video-mode .player-shell { width: 1920px; height: 1080px; gap: 0; }
+    body.video-mode .stage-frame { width: 1920px; height: 1080px; border: none; border-radius: 0; }
+    body.video-mode .player-bar { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="player-shell">
+    <div class="stage-frame"><canvas id="c" width="1920" height="1080"></canvas></div>
+    <div class="player-bar">
+      <div class="seek-row"><input id="seek" type="range" min="0" max="1000" step="1" value="0" /></div>
+      <div class="ctrl-row">
+        <div class="ctrl-left"><button id="play">▶ 播放</button><span class="time-label" id="tm">00:00 / 00:00</span></div>
+        <div class="chap-pills" id="chapters"></div>
+        <div class="ctrl-right">
+          <select id="speed" title="播放倍速">
+            <option value="0.8">0.8x</option><option value="1" selected>1.0x</option>
+            <option value="1.25">1.25x</option><option value="1.5">1.5x</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+  <audio id="au" preload="auto"></audio>
+  <script src="build/timeline.js"></script>
+  <script src="engine.js"></script>
+  <script src="phys.js"></script>
+  <script src="anim.js"></script>
+  <script>
+    (function () {
+      const isVideo = new URLSearchParams(window.location.search).get("mode") === "video";
+      if (isVideo) document.body.classList.add("video-mode");
+      const tl = window.TIMELINE || { duration: 60, scenes: [] };
+      const au = document.getElementById("au"), seek = document.getElementById("seek"), tm = document.getElementById("tm");
+      const btnPlay = document.getElementById("play"), chapBox = document.getElementById("chapters"), speedSel = document.getElementById("speed");
+      if (tl && !tl.preview_only) {
+        fetch("build/mix.wav").then((r) => r.blob()).then((blob) => { au.src = URL.createObjectURL(blob); }).catch(() => { au.src = "build/mix.wav"; });
+      }
+      const fmt = (sec) => { const s = Math.floor(sec), m = Math.floor(s / 60), r = s % 60; return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`; };
+      const chapEls = [];
+      (tl.scenes || []).forEach((sc) => {
+        const tag = (window.COURSE_TAGS && window.COURSE_TAGS[sc.id]) || [sc.id, sc.id];
+        const b = document.createElement("button"); b.className = "chap-pill"; b.textContent = `${tag[0]} ${tag[1]}`;
+        b.addEventListener("click", () => engine.seek(sc.start + 0.01)); chapBox.appendChild(b); chapEls.push({ el: b, start: sc.start, end: sc.end });
+      });
+      let isDragging = false, wasPlayingBeforeDrag = false;
+      const engine = new CourseEngine3B1B(document.getElementById("c"), {
+        timeline: tl, SC: window.COURSE_SCENES || {}, tags: window.COURSE_TAGS || {}, audioEl: au,
+        onUpdate(t, dur, playing) {
+          if (!isDragging) {
+            const pct = dur > 0 ? (t / dur) * 100 : 0;
+            seek.value = Math.round(pct * 10);
+            seek.style.background = `linear-gradient(to right, #58C4DD ${pct}%, rgba(255,255,255,0.16) ${pct}%)`;
+          }
+          tm.textContent = `${fmt(t)} / ${fmt(dur)}`;
+          btnPlay.textContent = playing ? "⏸ 暂停" : "▶ 播放";
+          chapEls.forEach((c) => c.el.classList.toggle("current", t >= c.start && t < c.end));
+        },
+      });
+      document.getElementById("c").addEventListener("click", () => { engine.playing ? engine.pause() : engine.play(); });
+      btnPlay.addEventListener("click", () => { engine.playing ? engine.pause() : engine.play(); });
+      const startDrag = () => { if (!isDragging) { isDragging = true; wasPlayingBeforeDrag = engine.playing; engine.pause(); } };
+      const moveDrag = () => {
+        const ratio = parseFloat(seek.value) / 1000, pct = ratio * 100;
+        seek.style.background = `linear-gradient(to right, #58C4DD ${pct}%, rgba(255,255,255,0.16) ${pct}%)`;
+        engine.seek(ratio * engine.duration);
+      };
+      const endDrag = () => {
+        if (!isDragging) return; isDragging = false;
+        engine.seek((parseFloat(seek.value) / 1000) * engine.duration);
+        if (wasPlayingBeforeDrag) engine.play();
+      };
+      seek.addEventListener("pointerdown", startDrag); seek.addEventListener("input", moveDrag);
+      seek.addEventListener("change", endDrag); window.addEventListener("pointerup", endDrag);
+      speedSel.addEventListener("change", (e) => { engine.speed = parseFloat(e.target.value); if (au) au.playbackRate = engine.speed; });
+      engine.render();
+    })();
+  </script>
+</body>
+</html>
