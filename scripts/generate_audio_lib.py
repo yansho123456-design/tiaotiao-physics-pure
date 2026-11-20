@@ -146,7 +146,7 @@ def gen_ding(path: str) -> None:
 def main() -> int:
     import sys
     here = os.path.dirname(os.path.abspath(__file__))
-    lib_dir = sys.argv[1] if len(sys.argv) > 1 else "/Users/yan/.gemini/antigravity/scratch/tiaotiao_audio_lib"
+    lib_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.abspath(os.path.join(here, "..", "references", "audio_lib"))
     os.makedirs(lib_dir, exist_ok=True)
     gen_bgm(os.path.join(lib_dir, "bgm_3b1b_ambient.wav"))
     gen_whoosh(os.path.join(lib_dir, "sfx_whoosh.wav"))
