@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Unified cross-platform course builder for desktop AND mobile sandboxes (Doubao, WorkBuddy, Qwen).
-- If desktop tools (edge_tts + playwright + ffmpeg/imageio_ffmpeg) are available:
-  builds 1.3x neural voice + 1080p MP4 embedded single-file HTML (<name>_course.html).
-- Otherwise (mobile / cloud sandbox):
-  automatically falls back to zero-dependency single-file HTML (<name>_course.html)
-  using Web Speech API 1.3x voiceover + Web Audio SFX + 16:9 Canvas animation.
+Unified cross-platform course builder for desktop AND mobile (Doubao, WorkBuddy, Qwen).
+Always produces:
+1. <name>_web.html : lightweight (~40KB) 16:9 interactive Canvas + audio/Web-Speech page
+   that opens reliably in mobile WebViews without heavy Base64 MP4 or blob: URLs.
+2. <name>.mp4 + <name>_course.html (when playwright + ffmpeg + tts are available):
+   native 1080p MP4 video file (playable directly in Doubao mobile!) + full embedded HTML.
 """
 import importlib.util
 import os
@@ -29,15 +29,21 @@ def main() -> int:
         return 2
     lesson_dir = os.path.abspath(sys.argv[1])
     base_name = os.path.basename(lesson_dir)
-    out_html = os.path.join(lesson_dir, f"{base_name}_course.html")
 
+    # 1. Always build the lightweight mobile-friendly web page (<name>_web.html)
+    web_html = os.path.join(lesson_dir, f"{base_name}_web.html")
+    subprocess.run([sys.executable, os.path.join(HERE, "build_mobile_html.py"), lesson_dir, web_html], check=True)
+
+    # 2. If video toolchain is available, also build native MP4 + embedded course HTML
     if has_desktop_video_stack():
-        print("[MODE] 检测到完整桌面视频工具链 → 生成 1080p MP4 内嵌单文件 HTML")
+        mp4_path = os.path.join(lesson_dir, f"{base_name}.mp4")
+        course_html = os.path.join(lesson_dir, f"{base_name}_course.html")
+        print("[MODE] 检测到视频工具链 → 同时生成原生 1080p MP4 视频与桌面单文件 HTML")
         subprocess.run([sys.executable, os.path.join(HERE, "build_audio.py"), lesson_dir], check=True)
-        subprocess.run([sys.executable, os.path.join(HERE, "bundle_single_html.py"), lesson_dir, out_html], check=True)
+        subprocess.run([sys.executable, os.path.join(HERE, "bundle_single_html.py"), lesson_dir, course_html], check=True)
+        print(f"[DELIVERABLES]\n  - 轻量网页: {web_html}\n  - MP4 视频: {mp4_path}\n  - 桌面全包: {course_html}")
     else:
-        print("[MODE] 检测到手机端/轻量沙盒环境（无 playwright/ffmpeg）→ 自动切换零依赖单文件 HTML 模式")
-        subprocess.run([sys.executable, os.path.join(HERE, "build_mobile_html.py"), lesson_dir, out_html], check=True)
+        print(f"[DELIVERABLES] 轻量网页（手机端直接打开）: {web_html}")
     return 0
 
 

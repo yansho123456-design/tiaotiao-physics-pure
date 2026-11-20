@@ -37,11 +37,11 @@ author: 跳跳学长
    ```bash
    python3 scripts/new_lesson.py <课题目录>
    ```
-3. **一键构建跨设备单文件 HTML（自动适配电脑与豆包/WorkBuddy/千问手机端）**：
+3. **一键构建双交付物（网页和视频各给一个，兼容豆包手机版与电脑端）**：
    ```bash
    python3 scripts/build_course.py <课题目录>
    ```
-   - 有 `playwright + ffmpeg` 时生成内嵌 1080p MP4 的单文件 HTML（含禁用词守卫）；在豆包手机版、WorkBuddy、千问等轻量沙盒环境时，自动零依赖生成轻量单文件 HTML（Web Speech 1.3x 语音 + Web Audio 音效，手机打开即播）。
+   - 始终生成轻量单文件网页 `<课题名>_web.html`（~40KB，手机 WebView 秒开）；当环境具备 `playwright + ffmpeg` 时，同时生成原生 `<课题名>.mp4` 视频文件（豆包手机版直接可播）与桌面端 `<课题名>_course.html`，交付时**同时提供网页与 MP4 视频**。
 
 ---
 
