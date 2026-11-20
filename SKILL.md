@@ -37,15 +37,11 @@ author: 跳跳学长
    ```bash
    python3 scripts/new_lesson.py <课题目录>
    ```
-3. **合成 1.3x 人声 + BGM + 音效（含禁用词自动拦截）**：
+3. **一键构建跨设备单文件 HTML（自动适配电脑与豆包/WorkBuddy/千问手机端）**：
    ```bash
-   python3 scripts/build_audio.py <课题目录>
+   python3 scripts/build_course.py <课题目录>
    ```
-4. **渲染 1080p MP4 并打包单文件 HTML**：
-   ```bash
-   python3 scripts/bundle_single_html.py <课题目录>
-   ```
-   - **发送 `http://127.0.0.1:<port>/...` 链接前必须先做存活校验**：用 `curl -sI -m 2 <url>` 确认返回 `200 OK`；若无响应或端口卡死，立即换空闲端口启动 `python3 -m http.server` 并再次校验 `200 OK` 后再发给用户。
+   - 有 `playwright + ffmpeg` 时生成内嵌 1080p MP4 的单文件 HTML（含禁用词守卫）；在豆包手机版、WorkBuddy、千问等轻量沙盒环境时，自动零依赖生成轻量单文件 HTML（Web Speech 1.3x 语音 + Web Audio 音效，手机打开即播）。
 
 ---
 
